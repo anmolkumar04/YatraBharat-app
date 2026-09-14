@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YatraBharat - Next-Gen SIH Smart Travel Experience Platform</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leaflet CSS & JS for Dark Maps -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- React, ReactDOM, and Babel for Single File React Component -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Framer Motion -->
+  <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            violet: { 600: '#7c3aed', 500: '#8b5cf6' },
+            emerald: { 500: '#10b981' },
+            amber: { 500: '#f59e0b' },
+            slate: { 900: '#0b0f19', 800: '#111827', 700: '#1f2937' }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #0b0f19;
+      color: #f3f4f6;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      overflow-x: hidden;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card-active {
+      background: rgba(124, 58, 237, 0.12);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(124, 58, 237, 0.4);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(124, 58, 237, 0.5);
+    }
+    /* Leaflet dark custom adjustments */
+    .leaflet-container {
+      background: #0b0f19 !important;
+      font-family: inherit;
+    }
+    .leaflet-bar a {
+      background-color: #111827 !important;
+      color: #fff !important;
+      border-color: rgba(255, 255, 255, 0.1) !important;
+    }
+    .leaflet-popup-content-wrapper {
+      background: #111827 !important;
+      color: #fff !important;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 0.75rem !important;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    .leaflet-popup-tip {
+      background: #111827 !important;
+    }
+  </style>
+</head>
+<body class="selection:bg-violet-500/30 selection:text-violet-200">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+    const { motion, AnimatePresence } = window.Motion;
+
+    // --- MOCK DESTINATIONS DATA ---
+    const DESTINATIONS = {
+      jaipur: {
+        id: "jaipur",
+        name: "Jaipur",
+        tagline: "The Pink City of Royal Palaces",
+        state: "Rajasthan",
+        lat: 26.9124,
+        lng: 75.7873,
+        weather: "28°C • Sunny",
+        bestTime: "Oct - Mar",
+        crowdLevel: "Moderate",
+        bgImage: "https://images.unsplash.com/photo-1599661046289-e31897846e41?auto=format&fit=crop&w=1200&q=80",
+        phrases: [
+          { local: "Khamma Ghani", text: "Royal Greeting / Hello", usage: "Use with locals" },
+          { local: "Padharo Mhare Desh", text: "Welcome to my land", usage: "Hospitality phrase" },
+          { local: "Aapna kaiko pucho?", text: "How much does this cost?", usage: "Bargaining at markets" }
+        ],
+        dosAndDonts: {
+          dos: ["Dress modestly at temples & forts", "Hydrate frequently with lassi or water", "Hire authorized tourist guides"],
+          donts: ["Don't pay non-metered auto rickshaws directly without bargaining", "Don't use flash inside museum galleries"]
+        },
+        foods: [
+          { name: "Dal Baati Churma", desc: "Crispy baked wheat balls dipped in ghee served with spicy lentils.", spice: "Medium", rating: 4.9, img: "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&w=400&q=80" },
+          { name: "Ghevar", desc: "Disc-shaped sweet cake soaked in sugar syrup topped with rabri.", spice: "Sweet", rating: 4.8, img: "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=400&q=80" }
+        ],
+        attractions: [
+          { id: "amber-fort", name: "Amber Fort & Palace", category: "Heritage", lat: 26.9855, lng: 75.8513, cost: "₹500 / $6", density: "High", rating: 4.8, img: "https://images.unsplash.com/photo-1599661046289-e31897846e41?auto=format&fit=crop&w=600&q=80", time: "2-3 hrs" },
+          { id: "hawa-mahal", name: "Hawa Mahal (Palace of Winds)", category: "Iconic", lat: 26.9239, lng: 75.8267, cost: "₹200 / $2.5", density: "Very High", rating: 4.7, img: "https://images.unsplash.com/photo-1603262110263-fb0112e7cc33?auto=format&fit=crop&w=600&q=80", time: "1 hr" },
+          { id: "city-palace", name: "City Palace Jaipur", category: "Royal Palace", lat: 26.9258, lng: 75.8237, cost: "₹700 / $8.5", density: "Moderate", rating: 4.6, img: "https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?auto=format&fit=crop&w=600&q=80", time: "2 hrs" },
+          { id: "jal-mahal", name: "Jal Mahal (Water Palace)", category: "Scenic", lat: 26.9534, lng: 75.8462, cost: "Free View", density: "Low", rating: 4.5, img: "https://images.unsplash.com/photo-1581888227599-779811939961?auto=format&fit=crop&w=600&q=80", time: "45 mins" }
+        ],
+        hotels: [
+          { id: "rambagh", name: "Rambagh Palace", rating: 4.9, price: "₹38,000 / night", tier: "Luxury", dist: "3.2 km center", img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=500&q=80", lat: 26.8982, lng: 75.8078 },
+          { id: "fairmont", name: "Fairmont Jaipur", rating: 4.8, price: "₹18,500 / night", tier: "Luxury", dist: "12 km north", img: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=500&q=80", lat: 27.0255, lng: 75.8812 },
+          { id: "bloom-boutique", name: "Bloom Boutique Hotel", rating: 4.6, price: "₹3,400 / night", tier: "Budget Comfort", dist: "1.1 km center", img: "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=500&q=80", lat: 26.9150, lng: 75.8110 }
+        ]
+      },
+      goa: {
+        id: "goa",
+        name: "Goa",
+        tagline: "Sun-Kissed Beaches & Portuguese Heritage",
+        state: "Goa",
+        lat: 15.2993,
+        lng: 74.1240,
+        weather: "31°C • Coastal Breeze",
+        bestTime: "Nov - Feb",
+        crowdLevel: "High",
+        bgImage: "https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=1200&q=80",
+        phrases: [
+          { local: "Dev Boren Korum", text: "May God Bless You / Thank You", usage: "Expressing gratitude" },
+          { local: "Mog Aso", text: "With Love", usage: "Casual friendly sign-off" },
+          { local: "Susegad", text: "Relaxed / Easygoing pace of life", usage: "Goan mindset concept" }
+        ],
+        dosAndDonts: {
+          dos: ["Rent a two-wheeler with valid helmet", "Respect marine life & keep beaches clean", "Try authentic Goan fish curry rice"],
+          donts: ["Don't swim past red caution flags at beaches", "Don't consume alcohol openly in prohibited public areas"]
+        },
+        foods: [
+          { name: "Goan Fish Curry Rice", desc: "Tender local kingfish cooked in coconut cream, tamarind, and spices.", spice: "Medium-High", rating: 4.9, img: "https://images.unsplash.com/photo-1610057099431-d73a1c9d2f2f?auto=format&fit=crop&w=400&q=80" },
+          { name: "Bebinca", desc: "Traditional 7-layered Goan coconut milk & egg dessert.", spice: "Sweet", rating: 4.7, img: "https://images.unsplash.com/photo-1587314168485-3236d6710814?auto=format&fit=crop&w=400&q=80" }
+        ],
+        attractions: [
+          { id: "baga-beach", name: "Baga Beach", category: "Beach & Nightlife", lat: 15.5553, lng: 73.7517, cost: "Free Entry", density: "Very High", rating: 4.7, img: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80", time: "3-4 hrs" },
+          { id: "fort-aguada", name: "Fort Aguada", category: "Historical Fort", lat: 15.4920, lng: 73.7737, cost: "₹50 / $0.6", density: "Moderate", rating: 4.6, img: "https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=600&q=80", time: "1.5 hrs" },
+          { id: "basilica-bom", name: "Basilica of Bom Jesus", category: "UNESCO Heritage", lat: 15.5009, lng: 73.9116, cost: "Free Entry", density: "Moderate", rating: 4.8, img: "https://images.unsplash.com/photo-1548625361-1850125828ef?auto=format&fit=crop&w=600&q=80", time: "1 hr" },
+          { id: "dudhsagar", name: "Dudhsagar Waterfalls", category: "Nature Trek", lat: 15.3144, lng: 74.3143, cost: "₹500 jeep safari", density: "High", rating: 4.9, img: "https://images.unsplash.com/photo-1586053226626-ad74f114144e?auto=format&fit=crop&w=600&q=80", time: "Full Day" }
+        ],
+        hotels: [
+          { id: "taj-exotica", name: "Taj Exotica Resort & Spa", rating: 4.9, price: "₹24,000 / night", tier: "Luxury", dist: "Beachfront Benaulim", img: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=500&q=80", lat: 15.2498, lng: 73.9211 },
+          { id: "w-goa", name: "W Goa - Vagator", rating: 4.8, price: "₹21,000 / night", tier: "Luxury", dist: "North Goa Cliff", img: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=500&q=80", lat: 15.6028, lng: 73.7388 },
+          { id: "zostel-goa", name: "Zostel Goa (Calangute)", rating: 4.5, price: "₹1,200 / night", tier: "Budget Hostel", dist: "600m to Beach", img: "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=500&q=80", lat: 15.5410, lng: 73.7580 }
+        ]
+      }
+    };
+
+    // Main App Component
+    function App() {
+      const [activeCityKey, setActiveCityKey] = useState('jaipur');
+      const [activeTab, setActiveTab] = useState('route'); // 'culture', 'attractions', 'hotels', 'route', 'budget'
+      
+      // Geolocation & User State
+      const [userLocation, setUserLocation] = useState(null); // { lat, lng, addressName }
+      const [isLocating, setIsLocating] = useState(false);
+      const [locationError, setLocationError] = useState(null);
+
+      // Route Navigation State
+      const [selectedTargetItem, setSelectedTargetItem] = useState(null);
+      const [routeData, setRouteData] = useState(null);
+      const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
+      const [commuteMode, setCommuteMode] = useState('driving'); // 'driving', 'bicycling', 'walking'
+
+      // Budget Calculator State
+      const [tripDays, setTripDays] = useState(4);
+      const [travelersCount, setTravelersCount] = useState(2);
+      const [comfortTier, setComfortTier] = useState('moderate'); // 'budget', 'moderate', 'luxury'
+
+      const currentCity = DESTINATIONS[activeCityKey];
+
+      // Auto icon updater
+      useEffect(() => {
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      });
+
+      // Fetch Browser GPS Live Location
+      const handleGetLiveLocation = () => {
+        setIsLocating(true);
+        setLocationError(null);
+
+        if (!navigator.geolocation) {
+          setLocationError("Geolocation is not supported by your browser");
+          setIsLocating(false);
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            let addressName = "My GPS Location";
+
+            try {
+              // Reverse geocode via Nominatim API
+              const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+              const data = await res.json();
+              if (data && data.address) {
+                addressName = data.address.city || data.address.town || data.address.suburb || "My Live Location";
+              }
+            } catch (e) {
+              console.log("Reverse geocode silent error:", e);
+            }
+
+            const newLoc = { lat, lng, addressName };
+            setUserLocation(newLoc);
+            setIsLocating(false);
+
+            // Auto calculate route to currently selected target if exists
+            if (selectedTargetItem) {
+              calculateRouteOSRM(newLoc, selectedTargetItem, commuteMode);
+            }
+          },
+          (error) => {
+            console.warn("Geolocation warning/error:", error.message);
+            setLocationError("Location permission denied. Using fallback city coordinates.");
+            setIsLocating(false);
+            // Default fallback
+            setUserLocation({ lat: currentCity.lat, lng: currentCity.lng, addressName: `${currentCity.name} Center (Default GPS)` });
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      };
+
+      // Calculate OSRM Turn-By-Turn Route
+      const calculateRouteOSRM = async (origin, destination, mode) => {
+        setIsCalculatingRoute(true);
+        try {
+          // OSRM profile mapping
+          const osrmProfile = mode === 'walking' ? 'foot' : mode === 'bicycling' ? 'bike' : 'car';
+          const url = `https://router.project-osrm.org/route/v1/${osrmProfile}/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&steps=true`;
+          
+          const res = await fetch(url);
+          const data = await res.json();
+
+          if (data.code === 'Ok' && data.routes && data.routes[0]) {
+            const route = data.routes[0];
+            const coordinates = route.geometry.coordinates.map(c => [c[1], c[0]]); // Leaflet lat/lng flip
+            const legs = route.legs[0];
+
+            setRouteData({
+              distanceKm: (route.distance / 1000).toFixed(1),
+              durationMins: Math.round(route.duration / 60),
+              coordinates,
+              steps: legs.steps.map(s => ({
+                instruction: s.maneuver.modifier 
+                  ? `Turn ${s.maneuver.modifier} onto ${s.name || 'unnamed road'}`
+                  : `Continue on ${s.name || 'destination route'}`,
+                distance: `${Math.round(s.distance)} m`,
+                type: s.maneuver.type
+              }))
+            });
+          } else {
+            setRouteData(null);
+          }
+        } catch (e) {
+          console.error("OSRM Route fetching error:", e);
+          setRouteData(null);
+        } finally {
+          setIsCalculatingRoute(false);
+        }
+      };
+
+      // Set target attraction or hotel to navigate to
+      const handleSelectDestinationForRoute = (item) => {
+        setSelectedTargetItem(item);
+        setActiveTab('route');
+        
+        const origin = userLocation || { lat: currentCity.lat, lng: currentCity.lng, addressName: `${currentCity.name} Center` };
+        calculateRouteOSRM(origin, item, commuteMode);
+      };
+
+      // Trigger Direct Native Google Maps App Deep Link
+      const openNativeGoogleMaps = (destItem) => {
+        const destLat = destItem ? destItem.lat : currentCity.lat;
+        const destLng = destItem ? destItem.lng : currentCity.lng;
+        
+        let url = `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}`;
+        if (userLocation) {
+          url += `&origin=${userLocation.lat},${userLocation.lng}`;
+        }
+        window.open(url, '_blank');
+      };
+
+      // Budget Calculation logic
+      const budgetBreakdown = useMemo(() => {
+        const basePerDayMap = { budget: 1800, moderate: 4500, luxury: 12000 };
+        const base = basePerDayMap[comfortTier];
+
+        const transport = Math.round(base * 0.25 * tripDays * travelersCount);
+        const stay = Math.round(base * 0.40 * tripDays * Math.ceil(travelersCount / 2));
+        const food = Math.round(base * 0.20 * tripDays * travelersCount);
+        const activities = Math.round(base * 0.15 * tripDays * travelersCount);
+
+        const total = transport + stay + food + activities;
+        const perPerson = Math.round(total / travelersCount);
+
+        return { transport, stay, food, activities, total, perPerson };
+      }, [tripDays, travelersCount, comfortTier]);
+
+      return (
+        <div className="min-h-screen pb-20 text-gray-100 flex flex-col items-center">
+          
+          {/* Ambient Radial Background Glows */}
+          <div className="fixed top-0 left-1/4 -translate-x-1/2 w-[500px] h-[500px] bg-violet-600/15 blur-[120px] rounded-full pointer-events-none -z-10"></div>
+          <div className="fixed top-1/3 right-10 w-[400px] h-[400px] bg-emerald-500/10 blur-[140px] rounded-full pointer-events-none -z-10"></div>
+
+          {/* APP HEADER */}
+          <header className="w-full max-w-7xl px-4 pt-6 pb-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-violet-600 to-emerald-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                <i data-lucide="compass" className="w-6 h-6 text-white animate-spin-slow"></i>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-violet-300">
+                  YatraBharat
+                </h1>
+                <p className="text-xs text-slate-400 font-medium">SIH Award-Winning Interactive Smart Travel Engine</p>
+              </div>
+            </div>
+
+            {/* City Selector Pills */}
+            <div className="flex items-center gap-2 p-1.5 rounded-full glass-card border border-white/10">
+              {Object.keys(DESTINATIONS).map((key) => {
+                const city = DESTINATIONS[key];
+                const isActive = activeCityKey === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      setActiveCityKey(key);
+                      setSelectedTargetItem(null);
+                      setRouteData(null);
+                    }}
+                    className={`relative px-5 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${
+                      isActive ? 'text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeCityPill"
+                        className="absolute inset-0 bg-gradient-to-r from-violet-600 to-violet-500 rounded-full shadow-lg shadow-violet-600/30"
+                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      />
+                    )}
+                    <span className="relative z-10 flex items-center gap-1.5">
+                      <i data-lucide="map-pin" className="w-3.5 h-3.5"></i>
+                      {city.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </header>
+
+          {/* HERO BANNER & QUICK STATS */}
+          <section className="w-full max-w-7xl px-4 my-3">
+            <div className="relative rounded-3xl overflow-hidden h-52 md:h-64 glass-card border border-white/10 flex items-end p-6">
+              <img 
+                src={currentCity.bgImage} 
+                alt={currentCity.name} 
+                className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-overlay scale-105 transition-transform duration-1000"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent"></div>
+
+              <div className="relative z-10 w-full flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-300 text-xs font-semibold mb-2">
+                    <i data-lucide="sparkles" className="w-3.5 h-3.5"></i> {currentCity.state}, India
+                  </div>
+                  <h2 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight">{currentCity.name}</h2>
+                  <p className="text-slate-300 text-sm md:text-base mt-1">{currentCity.tagline}</p>
+                </div>
+
+                {/* Status Badges */}
+                <div className="flex flex-wrap gap-2">
+                  <div className="glass-card px-3.5 py-2 rounded-xl flex items-center gap-2 text-xs border border-white/10">
+                    <i data-lucide="cloud-sun" className="w-4 h-4 text-amber-400"></i>
+                    <div>
+                      <div className="text-slate-400 text-[10px] leading-none">Weather</div>
+                      <div className="font-semibold text-white mt-0.5">{currentCity.weather}</div>
+                    </div>
+                  </div>
+
+                  <div className="glass-card px-3.5 py-2 rounded-xl flex items-center gap-2 text-xs border border-white/10">
+                    <i data-lucide="calendar" className="w-4 h-4 text-emerald-400"></i>
+                    <div>
+                      <div className="text-slate-400 text-[10px] leading-none">Best Time</div>
+                      <div className="font-semibold text-white mt-0.5">{currentCity.bestTime}</div>
+                    </div>
+                  </div>
+
+                  <div className="glass-card px-3.5 py-2 rounded-xl flex items-center gap-2 text-xs border border-white/10">
+                    <i data-lucide="users" className="w-4 h-4 text-violet-400"></i>
+                    <div>
+                      <div className="text-slate-400 text-[10px] leading-none">Crowd Density</div>
+                      <div className="font-semibold text-white mt-0.5">{currentCity.crowdLevel}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* FLOATING NAVIGATION TAB BAR */}
+          <nav className="w-full max-w-7xl px-4 sticky top-4 z-40 my-3">
+            <div className="p-1.5 rounded-2xl glass-card border border-white/10 shadow-2xl flex items-center justify-around gap-1 overflow-x-auto custom-scrollbar">
+              {[
+                { id: 'route', label: 'Route & Map', icon: 'map' },
+                { id: 'attractions', label: 'Attractions', icon: 'compass' },
+                { id: 'culture', label: 'Local Culture', icon: 'book-open' },
+                { id: 'hotels', label: 'Stays & Hotels', icon: 'building' },
+                { id: 'budget', label: 'Budget Engine', icon: 'calculator' }
+              ].map(tab => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${
+                      isActive ? 'text-white' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeTabPill"
+                        className="absolute inset-0 bg-violet-600 rounded-xl shadow-lg shadow-violet-600/30"
+                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                      />
+                    )}
+                    <span className="relative z-10 flex items-center gap-2">
+                      <i data-lucide={tab.icon} className="w-4 h-4"></i>
+                      {tab.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+
+          {/* MAIN MODULE CONTENT CANVAS */}
+          <main className="w-full max-w-7xl px-4 my-4 flex-1">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${activeCityKey}-${activeTab}`}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.25 }}
+              >
+
+                {/* MODULE 1: ROUTE & LIVE MAP NAVIGATION */}
+                {activeTab === 'route' && (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    {/* MAP DISPLAY PANEL */}
+                    <div className="lg:col-span-2 flex flex-col gap-4">
+                      <div className="p-4 rounded-2xl glass-card border border-white/10 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={handleGetLiveLocation}
+                            disabled={isLocating}
+                            className="px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-semibold text-xs flex items-center gap-2 transition"
+                          >
+                            <i data-lucide="crosshair" className={`w-4 h-4 ${isLocating ? 'animate-spin' : ''}`}></i>
+                            {isLocating ? 'Locating...' : 'Locate Me (GPS)'}
+                          </button>
+                          
+                          <div className="text-xs">
+                            <span className="text-slate-400">Origin: </span>
+                            <span className="font-semibold text-white">
+                              {userLocation ? userLocation.addressName : `${currentCity.name} Center`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Commute Mode Selectors */}
+                        <div className="flex items-center gap-1 bg-slate-900/60 p-1 rounded-xl border border-white/10">
+                          {[
+                            { id: 'driving', icon: 'car', label: 'Drive' },
+                            { id: 'bicycling', icon: 'bike', label: 'Bike' },
+                            { id: 'walking', icon: 'footprints', label: 'Walk' }
+                          ].map(mode => (
+                            <button
+                              key={mode.id}
+                              onClick={() => {
+                                setCommuteMode(mode.id);
+                                if (selectedTargetItem) {
+                                  const origin = userLocation || { lat: currentCity.lat, lng: currentCity.lng };
+                                  calculateRouteOSRM(origin, selectedTargetItem, mode.id);
+                                }
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition ${
+                                commuteMode === mode.id ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                              }`}
+                            >
+                              <i data-lucide={mode.icon} className="w-3.5 h-3.5"></i>
+                              {mode.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* LEAFLET INTERACTIVE MAP CONTAINER */}
+                      <MapComponent 
+                        city={currentCity} 
+                        userLocation={userLocation} 
+                        targetItem={selectedTargetItem} 
+                        routeCoordinates={routeData ? routeData.coordinates : null}
+                      />
+
+                      {/* DIRECT NATIVE GOOGLE MAPS TRIGGER BUTTON */}
+                      <div className="p-4 rounded-2xl glass-card border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 bg-gradient-to-r from-violet-900/20 to-slate-900/40">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400 shrink-0">
+                            <i data-lucide="navigation" className="w-5 h-5"></i>
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold text-white">Launch Google Maps Navigation App</div>
+                            <div className="text-xs text-slate-400">Open turn-by-turn direct routing on your smartphone</div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => openNativeGoogleMaps(selectedTargetItem)}
+                          className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-emerald-600 hover:from-violet-500 hover:to-emerald-500 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg transition"
+                        >
+                          <i data-lucide="external-link" className="w-4 h-4"></i>
+                          Open in Google Maps
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* TURN-BY-TURN ROUTE MANEUVER DETAILS */}
+                    <div className="flex flex-col gap-4">
+                      <div className="p-5 rounded-2xl glass-card border border-white/10 flex flex-col h-full">
+                        <h3 className="text-base font-bold text-white flex items-center gap-2 mb-3">
+                          <i data-lucide="milestone" className="w-4 h-4 text-emerald-400"></i>
+                          Turn-By-Turn Route Guide
+                        </h3>
+
+                        {selectedTargetItem ? (
+                          <div className="flex flex-col flex-1">
+                            <div className="p-3 rounded-xl bg-violet-500/10 border border-violet-500/20 mb-4">
+                              <div className="text-xs text-violet-300 font-medium">Destination</div>
+                              <div className="text-base font-bold text-white">{selectedTargetItem.name}</div>
+                              
+                              {routeData ? (
+                                <div className="mt-2 pt-2 border-t border-violet-500/20 flex items-center justify-between text-xs">
+                                  <span className="text-slate-300">
+                                    <strong className="text-emerald-400">{routeData.distanceKm} km</strong> distance
+                                  </span>
+                                  <span className="text-slate-300">
+                                    EST ETA: <strong className="text-amber-400">~{routeData.durationMins} mins</strong>
+                                  </span>
+                                </div>
+                              ) : isCalculatingRoute ? (
+                                <div className="mt-2 text-xs text-slate-400 animate-pulse">Calculating OSRM road geometry...</div>
+                              ) : null}
+                            </div>
+
+                            <div className="space-y-2 max-h-[380px] overflow-y-auto custom-scrollbar pr-1 flex-1">
+                              {routeData && routeData.steps.length > 0 ? (
+                                routeData.steps.map((step, idx) => (
+                                  <div key={idx} className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-start gap-3 text-xs">
+                                    <div className="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300 font-mono text-[10px] shrink-0">
+                                      {idx + 1}
+                                    </div>
+                                    <div className="flex-1">
+                                      <div className="text-slate-200 font-medium">{step.instruction}</div>
+                                      <div className="text-slate-500 text-[10px] mt-0.5">{step.distance}</div>
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-xs text-slate-400 text-center py-8">
+                                  {isCalculatingRoute ? "Fetching route steps..." : "No step instructions found."}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-white/10 rounded-xl">
+                            <i data-lucide="map-pin" className="w-8 h-8 text-slate-500 mb-2"></i>
+                            <div className="text-sm font-semibold text-slate-300">No Destination Selected</div>
+                            <p className="text-xs text-slate-500 mt-1">Select an attraction or hotel to generate live directions & road navigation.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+                )}
+
+                {/* MODULE 2: ATTRACTIONS & HIDDEN GEMS */}
+                {activeTab === 'attractions' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                    {currentCity.attractions.map(item => (
+                      <motion.div
+                        key={item.id}
+                        whileHover={{ y: -6, scale: 1.02 }}
+                        className="rounded-2xl glass-card border border-white/10 overflow-hidden flex flex-col group cursor-pointer"
+                        onClick={() => handleSelectDestinationForRoute(item)}
+                      >
+                        <div className="relative h-44 overflow-hidden">
+                          <img 
+                            src={item.img} 
+                            alt={item.name} 
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                          />
+                          <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-md text-violet-300 text-[10px] font-bold uppercase tracking-wider border border-white/10">
+                            {item.category}
+                          </div>
+                          <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-amber-500/90 text-slate-950 font-bold text-xs flex items-center gap-1 shadow">
+                            <i data-lucide="star" className="w-3 h-3 fill-slate-950"></i> {item.rating}
+                          </div>
+                        </div>
+
+                        <div className="p-4 flex flex-col justify-between flex-1">
+                          <div>
+                            <h3 className="text-base font-bold text-white group-hover:text-violet-300 transition-colors">{item.name}</h3>
+                            <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
+                              <span className="flex items-center gap-1">
+                                <i data-lucide="ticket" className="w-3.5 h-3.5 text-emerald-400"></i> {item.cost}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <i data-lucide="clock" className="w-3.5 h-3.5 text-amber-400"></i> {item.time}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+                            <span className="text-[11px] text-slate-400">
+                              Density: <strong className="text-slate-200">{item.density}</strong>
+                            </span>
+                            <button className="px-3 py-1.5 rounded-xl bg-violet-600/30 hover:bg-violet-600 text-violet-200 font-medium text-xs flex items-center gap-1 transition">
+                              Navigate <i data-lucide="arrow-right" className="w-3 h-3"></i>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+
+                {/* MODULE 3: LOCAL CULTURE & HERITAGE */}
+                {activeTab === 'culture' && (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    {/* Culture Phrase Copy Cards */}
+                    <div className="p-5 rounded-2xl glass-card border border-white/10">
+                      <h3 className="text-base font-bold text-white flex items-center gap-2 mb-4">
+                        <i data-lucide="languages" className="w-4 h-4 text-violet-400"></i>
+                        Local Key Phrases
+                      </h3>
+                      <div className="space-y-3">
+                        {currentCity.phrases.map((p, idx) => (
+                          <div key={idx} className="p-3.5 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between group hover:border-violet-500/30 transition">
+                            <div>
+                              <div className="text-sm font-bold text-violet-300">{p.local}</div>
+                              <div className="text-xs text-slate-200 font-medium">{p.text}</div>
+                              <div className="text-[10px] text-slate-500 mt-0.5">{p.usage}</div>
+                            </div>
+                            <button 
+                              onClick={() => navigator.clipboard.writeText(p.local)}
+                              className="p-2 rounded-lg bg-slate-800 hover:bg-violet-600 text-slate-400 hover:text-white transition"
+                              title="Copy phrase"
+                            >
+                              <i data-lucide="copy" className="w-3.5 h-3.5"></i>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Regional Food Highlights */}
+                    <div className="p-5 rounded-2xl glass-card border border-white/10">
+                      <h3 className="text-base font-bold text-white flex items-center gap-2 mb-4">
+                        <i data-lucide="utensils" className="w-4 h-4 text-amber-400"></i>
+                        Culinary Delights
+                      </h3>
+                      <div className="space-y-3">
+                        {currentCity.foods.map((food, idx) => (
+                          <div key={idx} className="flex gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5">
+                            <img src={food.img} alt={food.name} className="w-16 h-16 rounded-lg object-cover shrink-0" />
+                            <div>
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-sm font-bold text-white">{food.name}</h4>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">{food.spice}</span>
+                              </div>
+                              <p className="text-xs text-slate-400 mt-1 line-clamp-2">{food.desc}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Respectful Etiquette Do's & Don'ts */}
+                    <div className="p-5 rounded-2xl glass-card border border-white/10">
+                      <h3 className="text-base font-bold text-white flex items-center gap-2 mb-4">
+                        <i data-lucide="shield-check" className="w-4 h-4 text-emerald-400"></i>
+                        Cultural Etiquette
+                      </h3>
+
+                      <div className="space-y-4 text-xs">
+                        <div>
+                          <div className="text-emerald-400 font-bold mb-2 flex items-center gap-1">
+                            <i data-lucide="check-circle-2" className="w-3.5 h-3.5"></i> DO'S
+                          </div>
+                          <ul className="space-y-1.5 text-slate-300">
+                            {currentCity.dosAndDonts.dos.map((item, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className="text-emerald-400">•</span> {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div className="pt-3 border-t border-white/10">
+                          <div className="text-rose-400 font-bold mb-2 flex items-center gap-1">
+                            <i data-lucide="x-circle" className="w-3.5 h-3.5"></i> DON'TS
+                          </div>
+                          <ul className="space-y-1.5 text-slate-300">
+                            {currentCity.dosAndDonts.donts.map((item, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className="text-rose-400">•</span> {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                )}
+
+                {/* MODULE 4: TOP-RATED HOTELS */}
+                {activeTab === 'hotels' && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {currentCity.hotels.map(hotel => (
+                      <div key={hotel.id} className="rounded-2xl glass-card border border-white/10 overflow-hidden flex flex-col">
+                        <div className="relative h-48">
+                          <img src={hotel.img} alt={hotel.name} className="w-full h-full object-cover" />
+                          <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-slate-900/80 backdrop-blur-md text-amber-300 text-xs font-bold border border-white/10">
+                            ★ {hotel.rating}
+                          </div>
+                        </div>
+
+                        <div className="p-4 flex flex-col justify-between flex-1">
+                          <div>
+                            <span className="text-[10px] font-bold text-violet-400 uppercase tracking-wider">{hotel.tier}</span>
+                            <h3 className="text-base font-bold text-white mt-0.5">{hotel.name}</h3>
+                            <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                              <i data-lucide="navigation" className="w-3 h-3 text-slate-500"></i> {hotel.dist}
+                            </p>
+                          </div>
+
+                          <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+                            <div className="text-sm font-extrabold text-emerald-400">{hotel.price}</div>
+                            <button 
+                              onClick={() => handleSelectDestinationForRoute(hotel)}
+                              className="px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-medium text-xs flex items-center gap-1 transition shadow"
+                            >
+                              Route Here
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* MODULE 5: DYNAMIC BUDGET ESTIMATOR ENGINE */}
+                {activeTab === 'budget' && (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    
+                    {/* Controls */}
+                    <div className="lg:col-span-5 p-6 rounded-2xl glass-card border border-white/10 space-y-6">
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <i data-lucide="sliders" className="w-5 h-5 text-violet-400"></i>
+                        Trip Parameters
+                      </h3>
+
+                      <div>
+                        <div className="flex justify-between text-xs font-semibold mb-2">
+                          <span className="text-slate-300">Trip Duration</span>
+                          <span className="text-violet-300 font-bold">{tripDays} Days</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="15" 
+                          value={tripDays} 
+                          onChange={(e) => setTripDays(Number(e.target.value))}
+                          className="w-full accent-violet-500 bg-slate-800 rounded-lg cursor-pointer h-2" 
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-xs font-semibold mb-2">
+                          <span className="text-slate-300">Travelers Count</span>
+                          <span className="text-emerald-300 font-bold">{travelersCount} Person(s)</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="8" 
+                          value={travelersCount} 
+                          onChange={(e) => setTravelersCount(Number(e.target.value))}
+                          className="w-full accent-emerald-500 bg-slate-800 rounded-lg cursor-pointer h-2" 
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-slate-300 block mb-2">Comfort Tier</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { id: 'budget', label: 'Budget' },
+                            { id: 'moderate', label: 'Comfort' },
+                            { id: 'luxury', label: 'Luxury' }
+                          ].map(tier => (
+                            <button
+                              key={tier.id}
+                              onClick={() => setComfortTier(tier.id)}
+                              className={`py-2 rounded-xl text-xs font-bold border transition ${
+                                comfortTier === tier.id 
+                                  ? 'bg-violet-600 border-violet-500 text-white shadow' 
+                                  : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                              }`}
+                            >
+                              {tier.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Cost Calculations Breakdown */}
+                    <div className="lg:col-span-7 p-6 rounded-2xl glass-card border border-white/10 flex flex-col justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-6">
+                          <i data-lucide="pie-chart" className="w-5 h-5 text-emerald-400"></i>
+                          Live Cost Breakdown
+                        </h3>
+
+                        <div className="space-y-4">
+                          {[
+                            { label: 'Hotel / Accommodation', cost: budgetBreakdown.stay, color: 'bg-violet-500' },
+                            { label: 'Local Transport & Fuel', cost: budgetBreakdown.transport, color: 'bg-emerald-500' },
+                            { label: 'Food & Dining', cost: budgetBreakdown.food, color: 'bg-amber-500' },
+                            { label: 'Activities & Tickets', cost: budgetBreakdown.activities, color: 'bg-blue-500' }
+                          ].map((item, i) => {
+                            const pct = Math.round((item.cost / budgetBreakdown.total) * 100);
+                            return (
+                              <div key={i}>
+                                <div className="flex justify-between text-xs font-medium mb-1">
+                                  <span className="text-slate-300">{item.label}</span>
+                                  <span className="text-white font-bold">₹{item.cost.toLocaleString()} ({pct}%)</span>
+                                </div>
+                                <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                                  <div className={`h-full ${item.color} transition-all duration-500`} style={{ width: `${pct}%` }}></div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div>
+                          <div className="text-xs text-slate-400 font-medium">Estimated Per Person Share</div>
+                          <div className="text-xl font-extrabold text-emerald-400">₹{budgetBreakdown.perPerson.toLocaleString()}</div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-xs text-slate-400 font-medium">Total Trip Estimation</div>
+                          <div className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-violet-300 via-white to-emerald-300">
+                            ₹{budgetBreakdown.total.toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                )}
+
+              </motion.div>
+            </AnimatePresence>
+          </main>
+        </div>
+      );
+    }
+
+    // --- INNER LEAFLET MAP SUB-COMPONENT ---
+    function MapComponent({ city, userLocation, targetItem, routeCoordinates }) {
+      const mapContainerRef = useRef(null);
+      const mapInstanceRef = useRef(null);
+      const markersLayerRef = useRef(null);
+      const routePolylineRef = useRef(null);
+
+      useEffect(() => {
+        if (!mapContainerRef.current) return;
+
+        // Initialize Map
+        if (!mapInstanceRef.current) {
+          const map = L.map(mapContainerRef.current, { zoomControl: false }).setView([city.lat, city.lng], 12);
+          
+          // CartoDB Dark Matter Tiles
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
+          }).addTo(map);
+
+          L.control.zoom({ position: 'topright' }).addTo(map);
+
+          markersLayerRef.current = L.layerGroup().addTo(map);
+          mapInstanceRef.current = map;
+        }
+
+        const map = mapInstanceRef.current;
+        const markersGroup = markersLayerRef.current;
+        markersGroup.clearLayers();
+
+        // Clear existing polylines
+        if (routePolylineRef.current) {
+          map.removeLayer(routePolylineRef.current);
+          routePolylineRef.current = null;
+        }
+
+        const bounds = [];
+
+        // 1. User Live Location Marker (Pulsing Cyan)
+        if (userLocation) {
+          const userIcon = L.divIcon({
+            className: 'custom-user-pin',
+            html: `<div class="w-5 h-5 rounded-full bg-cyan-400 border-2 border-white shadow-lg shadow-cyan-500/50 animate-pulse"></div>`,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          });
+          L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+            .bindPopup(`<b>${userLocation.addressName}</b><br/>Your Current Location`)
+            .addTo(markersGroup);
+          bounds.push([userLocation.lat, userLocation.lng]);
+        }
+
+        // 2. City Attractions Pins
+        city.attractions.forEach(item => {
+          const isTarget = targetItem && targetItem.id === item.id;
+          const icon = L.divIcon({
+            className: 'custom-attraction-pin',
+            html: `<div class="w-7 h-7 rounded-full ${isTarget ? 'bg-emerald-500 ring-4 ring-emerald-400/40' : 'bg-violet-600'} text-white flex items-center justify-center font-bold text-xs shadow-xl border border-white/30">📍</div>`,
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
+          });
+          const m = L.marker([item.lat, item.lng], { icon })
+            .bindPopup(`<b>${item.name}</b><br/>Cost: ${item.cost}`)
+            .addTo(markersGroup);
+
+          bounds.push([item.lat, item.lng]);
+        });
+
+        // 3. Draw Route Polyline if available
+        if (routeCoordinates && routeCoordinates.length > 0) {
+          routePolylineRef.current = L.polyline(routeCoordinates, {
+            color: '#10b981',
+            weight: 5,
+            opacity: 0.8,
+            dashArray: '8, 8'
+          }).addTo(map);
+
+          map.fitBounds(routePolylineRef.current.getBounds(), { padding: [50, 50] });
+        } else if (bounds.length > 0) {
+          map.fitBounds(bounds, { padding: [40, 40] });
+        } else {
+          map.setView([city.lat, city.lng], 12);
+        }
+
+      }, [city, userLocation, targetItem, routeCoordinates]);
+
+      return (
+        <div className="relative w-full h-[400px] rounded-2xl overflow-hidden border border-white/10 shadow-2xl glass-card">
+          <div ref={mapContainerRef} className="w-full h-full z-10"></div>
+        </div>
+      );
+    }
+
+    // Render App
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
